@@ -2,53 +2,60 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, request
-
-CREATE_USERS_TABLE = (
-    "CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT, pass Text);"
-)
-
-INSERT_USER_RETURN_ID = "INSERT INTO users (username, pass) VALUES (%s, %s) RETURNING id;"
-
-GET_USER = "SELECT * FROM users WHERE username = (%s)"
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
 load_dotenv()  # loads variables from .env file into environment
 
 app = Flask(__name__)
-url = os.environ.get("DATABASE_URL")  # gets variables from environment
-connection = psycopg2.connect(url)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
-@app.post("/api/create_user")
+class UserModel(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(), unique = False, nullable = False)
+    password = db.Column('pass', db.String())
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+    def __repr__(self) -> str:
+        return f'{self.username}'
+
+@app.post('/api/create_user')
 def create_user():
-    data = request.get_json()
-    username = data["username"]
-    password = data["password"]
-    with connection:
-        with connection.cursor() as cursor:
-            cursor.execute(CREATE_USERS_TABLE)
+    if request.is_json:
+        data = request.get_json()
+        request_username = data['username']
+        request_password = data['password']
 
-            cursor.execute(GET_USER, (username, ))
-            if (cursor.fetchone() != None):
-                return {"message": "User already exists"}, 400
+        user = UserModel.query.filter_by(username=request_username).first()
+        if (user != None):
+            return {'message': 'User already exists'}, 400
 
-            cursor.execute(INSERT_USER_RETURN_ID, (username, password, ))
+        new_user = UserModel(username=request_username, password=request_password)
+        db.session.add(new_user)
+        db.session.commit()
+        return {'id': new_user.id, 'message': f'User {new_user.username} created.'}, 201
+    else:
+        return {'error': 'The request payload is not in JSON format'}, 400
 
-            user_id = cursor.fetchone()[0]
-    return {"id": user_id, "message": f"User {username} created."}, 201
-
-@app.post("/api/get_user/")
+@app.post('/api/get_user')
 def get_user():
-    data = request.get_json()
-    username = data["username"]
-    password = data["password"]
-    with connection:
-        with connection.cursor() as cursor:
-            cursor.execute(GET_USER, (username,))
-            obj = cursor.fetchone()
 
-            if (obj == None):
-                return {"message": "User does not exist"}, 400
-            if (obj[2] != password):
-                return {"message": "Wrong password"}, 400
+    if request.is_json:
+        data = request.get_json()
+        request_username = data['username']
+        request_password = data['password']
 
-            id = obj[0]
-    return {"message": f"User {id} returned."}
+        user = UserModel.query.filter_by(username=request_username).first()
+        if (user == None):
+            return {'message': 'User does not exist'}, 400
+        if (user.password != request_password):
+            return {'message': 'Wrong password'}, 400
+        id = user.id
+        return {'message': f'User {id} returned.'}

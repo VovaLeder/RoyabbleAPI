@@ -30,7 +30,7 @@ def check_request_auth(data):
 
     user = UserModel.query.filter_by(auth_key=request_auth_key).first()
     if (user == None):
-        return [1, ({'message': 'User does not exist'}, 400)]
+        return [1, ({'message': 'User does not exist'}, 401)]
     
     return [0, user]
 

@@ -4,7 +4,7 @@ from flask import Flask, request
 from flask_migrate import Migrate
 from models.UserModel import UserModel
 from models import db
-from utils.utils import check_request_data, check_request_auth, return_success_user, is_all_alphanumberic_string, check_password, get_hashed_password
+from utils.utils import check_request_data, check_request_auth, return_success_user, check_password, get_hashed_password
 
 load_dotenv()
 

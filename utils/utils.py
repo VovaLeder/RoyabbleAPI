@@ -1,6 +1,6 @@
 from models.UserModel import UserModel
 import bcrypt
-
+    
 def check_request_data(data):
     if (not('username' in data.keys()) or not('password' in data.keys())):
         return [1, ({'message': 'You have to have \'username\' and \'password\' fields in your request'}, 400)]
